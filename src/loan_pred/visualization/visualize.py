@@ -24,20 +24,21 @@ class Plots:
         ax.set_xticklabels(self.data[col].unique(), rotation=45)
 
         plt.xticks(size=12, rotation=45)
-        plt.xlabel(col, size = 12)
+        plt.xlabel(col, size=12)
         plt.yticks(size=12)
 
         for p in ax.patches:
             ax.annotate(
                 p.get_height(),
                 xy=(p.get_x() + p.get_width() / 2, p.get_height()),
-                xytext = (0, 3),
+                xytext=(0, 3),
                 textcoords="offset points",
                 ha='center',
                 va='bottom'
             )
 
-    def plot_all_cats(self, nrows: int = 1, ncols: int = 1, figsize: Tuple = (10,8), title: str = "Categorical columns count plots"):
+    def plot_all_cats(self, nrows: int = 1, ncols: int = 1,
+                      figsize: Tuple = (10, 8), title: str = "Categorical columns count plots"):
         sns.set_theme()
         if self.cat_cols is None:
             return "No categorical column provided"
