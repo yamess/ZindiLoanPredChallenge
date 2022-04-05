@@ -21,11 +21,11 @@ class Plots:
     def _plot_single(self, ax, col):
         sns.countplot(ax=ax, x=col, data=self.data)
         ax.set_title(f"{col} counts plot")
-        ax.set_xticklabels(self.data[col].unique(), rotation=45)
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 
-        plt.xticks(size=12, rotation=45)
-        plt.xlabel(col, size=12)
-        plt.yticks(size=12)
+        # ax.set_xticklabels(ax., size=12, rotation=45)
+        # ax.xlabel(col, size=12)
+        # ax.yticks(size=12)
 
         for p in ax.patches:
             ax.annotate(
