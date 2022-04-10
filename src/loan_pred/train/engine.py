@@ -10,6 +10,7 @@ logger = logging.Logger(__file__)
 
 
 def engine(model, train_dataloader, eval_dataloader, optimizer, criterion, scheduler, config, checkpoint):
+    best_state_dict = None
     if checkpoint:
         best_eval_loss = checkpoint["best_eval_loss"]
         best_roc_auc = checkpoint["best_roc_auc"]
@@ -57,14 +58,15 @@ def engine(model, train_dataloader, eval_dataloader, optimizer, criterion, sched
             best_eval_loss = metrics_eval["avg_loss"]
             best_roc_auc = metrics_eval["roc_auc"]
             best_state_dict = deepcopy(model.state_dict())
+            epoch_at_best = e
 
             display_msg += " + "
 
-            checkpoint["best_eval_loss"] = best_eval_loss
-            checkpoint["best_roc_auc"] = best_roc_auc
-            checkpoint["best_state_dict"] = best_state_dict
-            checkpoint["epoch_at_best"] = e
+        checkpoint["best_eval_loss"] = best_eval_loss
+        checkpoint["best_roc_auc"] = best_roc_auc
+        checkpoint["best_state_dict"] = best_state_dict
+        checkpoint["epoch_at_best"] = epoch_at_best
 
-            torch.save(checkpoint, config["CHECKPOINT_POINT"])
+        torch.save(checkpoint, config["CHECKPOINT_POINT"])
 
         print(display_msg)
