@@ -1,5 +1,8 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+from pandas.errors import InvalidIndexError
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 
 
 def convert_dtype(data: pd.DataFrame, columns_type: dict) -> pd.DataFrame:
@@ -76,8 +79,10 @@ def get_data(loan_path, prev_loan_path, dg_path):
 
 def generate_graph(perf, prev_loan, dg):
     nodes_list = perf.customerid
-    prevloans_cols = ["loannumber", "loanamount", "totaldue", "termdays", "closeddate_days", "firstduedate_days", "firstrepaiddate_days"]
-    dg_cols = ["bank_account_type","longitude_gps", "latitude_gps", "bank_name_clients", "employment_status_clients", "is_missing_emp_status_clients"]
+    prevloans_cols = ["loannumber", "loanamount", "totaldue", "termdays", "closeddate_days", "firstduedate_days",
+                      "firstrepaiddate_days"]
+    dg_cols = ["bank_account_type", "longitude_gps", "latitude_gps", "bank_name_clients", "employment_status_clients",
+               "is_missing_emp_status_clients"]
 
     for n in nodes_list:
         loan_row = perf.loc[perf.customerid == n, :].reset_index(drop=True)
@@ -105,3 +110,72 @@ def generate_graph(perf, prev_loan, dg):
                 "node_type_dg": dg.loc[dg.customerid == n, dg_cols].values.tolist()
             }
         yield response
+
+
+class CustomScalerPerf(BaseEstimator, TransformerMixin):
+    def __init__(self, cols=None):
+        self.scaler = StandardScaler()
+        self.cols = cols
+
+    def fit(self, data):
+        _tmp = data[self.cols]
+        self.scaler.fit(_tmp)
+        return self
+
+    def transform(self, data):
+        try:
+            _cols = data.columns
+            _tmp_1 = data.drop(self.cols, axis=1)
+            _tmp_2 = data[self.cols]
+            _tmp_2 = self.scaler.transform(_tmp_2)
+            _tmp_2 = pd.DataFrame(_tmp_2, columns=self.cols)
+            _tmp = pd.concat([_tmp_1, _tmp_2], axis=1)
+            _tmp = _tmp[_cols]
+            return _tmp
+        except InvalidIndexError as e:
+            raise e
+
+
+class MultiLabelEncoder(BaseEstimator, TransformerMixin):
+    def __init__(self, cols):
+        self.cols = cols
+        self.encoders = {
+            c: LabelEncoder() for c in self.cols
+        }
+
+    def fit(self, data):
+        output = data.copy()
+        for c in self.cols:
+            self.encoders[c].fit(output[c])
+        return self
+
+    def transform(self, data):
+        output = data.copy()
+        for c in self.cols:
+            output.loc[:, c] = self.encoders[c].transform(output[c])
+        return output
+
+
+class TargetEncoder:
+    def __init__(self, auto: bool = True, mapping: dict = None):
+        self.auto = auto
+        self.mapping = mapping
+        self._input_validity()
+
+    def encode_target(self, data, target):
+        data_ = data.copy()
+        if self.auto:
+            cat = data.loc[:, target].unique()
+            self.mapping = {}
+            for i in range(len(cat)):
+                self.mapping[cat[i]] = i
+        data_["y"] = data_.loc[:, target].apply(lambda x: self.mapping[x])
+        data_.drop(target, axis=1, inplace=True)
+        data_.rename(columns={"y": target}, inplace=True)
+        return data_
+
+    def _input_validity(self):
+        if self.auto and self.mapping is not None:
+            raise Exception(
+                f"Not allowed to set auto=True and provide mapping! Please set auto to False and provide mapping"
+            )
