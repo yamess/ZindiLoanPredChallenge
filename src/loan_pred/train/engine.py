@@ -51,7 +51,7 @@ def engine(model, train_dataloader, eval_dataloader, optimizer, criterion, sched
         display_msg = (
             f"Epoch: {e: <{4}} | Elapsed Time: {e_elapsed_time: 3.2f} s | Train Loss: {metrics_train['avg_loss']: .4f} "
             f"| Valid Loss: {metrics_eval['avg_loss']: .4f} | Train ROC AUC: {metrics_train['roc_auc']: .4f} | "
-            f"Valid ROC AUC: {metrics_eval['roc_auc']: .4f} | Train MBE: {metrics_train['mbe']: .4f} | "
+            f"Valid ROC AUC: {metrics_eval['roc_auc']: .4f} | "
         )
 
         if (metrics_eval["avg_loss"] < best_eval_loss) & (metrics_eval["roc_auc"] >= best_roc_auc):
@@ -67,6 +67,6 @@ def engine(model, train_dataloader, eval_dataloader, optimizer, criterion, sched
         checkpoint["best_state_dict"] = best_state_dict
         checkpoint["epoch_at_best"] = epoch_at_best
 
-        torch.save(checkpoint, config["CHECKPOINT_POINT"])
+        torch.save(checkpoint, config["CHECKPOINT_PATH"])
 
         print(display_msg)

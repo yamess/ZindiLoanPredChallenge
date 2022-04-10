@@ -30,7 +30,7 @@ def train(model, dataloader, optimizer, criterion, device, cut_point: float):
     y_preds = [int(p > cut_point) for p in probs]
     roc_auc = roc_auc_score(y_true=y_trues, y_score=y_preds)
     avg_loss = losses / len(dataloader.sampler)
-    return avg_loss, roc_auc, probs, y_preds
+    return {"avg_loss": avg_loss, "roc_auc": roc_auc, "probs": probs, "y_preds": y_preds}
 
 
 def evaluate(model, dataloader, criterion, device, cut_point: float):
@@ -55,4 +55,4 @@ def evaluate(model, dataloader, criterion, device, cut_point: float):
         y_preds = [int(p > cut_point) for p in probs]
         roc_auc = roc_auc_score(y_true=y_trues, y_score=y_preds)
         avg_loss = losses / len(dataloader.sampler)
-        return avg_loss, roc_auc, probs, y_preds
+        return {"avg_loss": avg_loss, "roc_auc": roc_auc, "probs": probs, "y_preds": y_preds}
