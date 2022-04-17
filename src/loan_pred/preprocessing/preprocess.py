@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from pandas.errors import InvalidIndexError
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -77,42 +76,7 @@ def get_data(loan_path, prev_loan_path, dg_path):
     return train_perf, train_prevloans, train_dg
 
 
-def generate_graph(perf, prev_loan, dg):
-    nodes_list = perf.customerid
-    prevloans_cols = ["loannumber", "loanamount", "totaldue", "termdays", "closeddate_days", "firstduedate_days",
-                      "firstrepaiddate_days"]
-    dg_cols = ["bank_account_type", "longitude_gps", "latitude_gps", "bank_name_clients", "employment_status_clients",
-               "is_missing_emp_status_clients"]
-
-    for n in nodes_list:
-        loan_row = perf.loc[perf.customerid == n, :].reset_index(drop=True)
-        if len(dg[dg.customerid == n]) > 0:
-            dob = dg.loc[dg.customerid == n, "birthdate"].reset_index(drop=True)
-
-            loan_row.loc[:, "age_at_loan"] = ((loan_row["approveddate"] - dob) / np.timedelta64(1, "Y"))
-
-            loans_cols = ["loannumber", "loanamount", "totaldue", "termdays", "age_at_loan"]
-
-            response = {
-                "user_id": n,
-                "graph_label": loan_row.good_bad_flag[0],
-                "node_type_loans": loan_row.loc[:, loans_cols].values.tolist(),
-                "node_type_prevloans": prev_loan.loc[prev_loan.customerid == n, prevloans_cols].values.tolist(),
-                "node_type_dg": dg.loc[dg.customerid == n, dg_cols].values.tolist()
-            }
-        else:
-            loans_cols = ["loannumber", "loanamount", "totaldue", "termdays"]
-            response = {
-                "user_id": n,
-                "graph_label": loan_row.good_bad_flag[0],
-                "node_type_loans": loan_row.loc[loan_row.customerid == n, loans_cols].values.tolist(),
-                "node_type_prevloans": prev_loan.loc[prev_loan.customerid == n, prevloans_cols].values.tolist(),
-                "node_type_dg": dg.loc[dg.customerid == n, dg_cols].values.tolist()
-            }
-        yield response
-
-
-class CustomScalerPerf(BaseEstimator, TransformerMixin):
+class CustomScaler(BaseEstimator, TransformerMixin):
     def __init__(self, cols=None):
         self.scaler = StandardScaler()
         self.cols = cols
