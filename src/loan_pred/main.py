@@ -2,7 +2,7 @@ import dgl
 import numpy as np
 import torch
 
-from loan_pred.models.models import HeteroClassifier
+from loan_pred.models.models import HeteroRGCN
 
 data = {'id': 0, 'user_id': '8a2a81a74ce8c05d014cfb32a0da1049', 'label': 1, 'node_loans': [
     [1.868964712900149, 1.1342024378353102, 1.1088983044984644, 0.06413962696284115, 0.9105374790315618]], 'node_dg': [
@@ -47,16 +47,6 @@ if __name__ == "__main__":
     graph.nodes["node_dg"].data["feat"] = torch.tensor(data["node_dg"])
     graph.nodes["node_prevloans"].data["feat"] = torch.tensor(data["node_prevloans"])
 
-    # feat_dicts = get_node_feat(data)
-    # graph.ndata["feat"] = torch.cat(
-    #     (
-    #         torch.tensor(data["node_loans"]).flatten(),
-    #         torch.tensor(data["node_dg"]).flatten(),
-    #         torch.tensor(data["node_prevloans"]).flatten()
-    #     )
-    # )
-    model = HeteroClassifier(in_dim=5, hidden_dim=10, n_classes=1, rel_names=['has', 'lives'])
+    model = HeteroRGCN(in_size=5, hidden_size=5, out_size=1, etypes=['has', 'lives'])
     res = model(graph)
-    # print(graph)
-    # print(feat_dicts)
     print(res)
