@@ -3,7 +3,8 @@ import time
 
 import torch
 
-from src.loan_pred.train.train_model import train, evaluate
+from loan_pred.train.evaluate import evaluate, evaluate_graph
+from src.loan_pred.train.train_model import train, train_graph
 
 logger = logging.Logger(__file__)
 
@@ -76,3 +77,21 @@ def engine(model, train_dataloader, eval_dataloader, optimizer, criterion, sched
     finally:
         torch.save(best_emb_layers, "../models_storage/embeddings/embeddings_layers.pt")
         torch.save(checkpoint, storage_path)
+
+
+def engine_graph(model, trainloader, testloader, optimizer, criterion, n_epoch, device):
+    for e in range(n_epoch):
+        train_res = train_graph(
+            model=model,
+            criterion=criterion,
+            optimizer=optimizer,
+            dataloader=trainloader,
+            device=device
+        )
+        test_res = evaluate_graph(
+            model=model,
+            criterion=criterion,
+            dataloader=testloader,
+            device=device
+        )
+        print(test_res)

@@ -21,17 +21,6 @@ def convert_dtype(data: pd.DataFrame, columns_type: dict) -> pd.DataFrame:
     return data
 
 
-# def generate_graph(perf, prev, dg):
-#     nodes_list = perf.customerid
-#     for n in nodes_list:
-#         yield {
-#             "graph_label": perf.loc[perf.customerid == n, "good_bad_flag"].values[0],
-#             "node_type_perf": perf.loc[perf.customerid == n, :].values.tolist(),
-#             "node_type_prev": prev.loc[prev.customerid == n, :].values.tolist(),
-#             "node_type_dg": dg.loc[dg.customerid == n, :].values.tolist()
-#         }
-
-
 def get_data(loan_path, prev_loan_path, dg_path):
     train_prevloans = pd.read_csv(prev_loan_path)
     cols_dtypes = {

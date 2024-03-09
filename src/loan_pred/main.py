@@ -1,52 +1,97 @@
-import dgl
-import numpy as np
+import random
+
 import torch
+from dgl.dataloading import GraphDataLoader
+from torch import nn, optim
 
+from loan_pred.config import config
+from loan_pred.helpers.helper import load_pickle
 from loan_pred.models.models import HeteroRGCN
-
-data = {'id': 0, 'user_id': '8a2a81a74ce8c05d014cfb32a0da1049', 'label': 1, 'node_loans': [
-    [1.868964712900149, 1.1342024378353102, 1.1088983044984644, 0.06413962696284115, 0.9105374790315618]], 'node_dg': [
-    [-0.16622738032006648, -0.2678823639894638, 0.0, 2.2026453018188477, 1.5976506471633911, -1.425376296043396,
-     0.36965134739875793, 1.0473814010620117, 1.9874283075332642, 0.24556586146354675, 1.1803208589553833,
-     0.15472577512264252, -1.920318365097046, -0.8908156752586365, -0.6241723299026489, 0.4861326813697815,
-     0.34133508801460266, -1.4998971223831177, 0.9083321690559387]], 'node_prevloans': [
-    [-0.673771321016832, -0.6975358677579336, -0.6287764937273944, 0.30213165900863986, -0.5569429447405659,
-     0.6183781593635554, -0.5432506713248281],
-    [1.4804723804160946, -0.6975358677579336, -0.6287764937273944, 0.30213165900863986, 0.4240673261638455,
-     0.897377937823334, 0.36500371102529966],
-    [1.172723280211391, 0.3753919808058758, 0.4043250555812386, 0.30213165900863986, 2.159700882379343,
-     0.6183781593635554, 2.429218216366499],
-    [1.7882214806207986, 0.3753919808058758, 0.47128534118457593, 0.30213165900863986, 0.04675568350830268,
-     0.897377937823334, 0.11729797038435574],
-    [2.0959705808255022, 0.3753919808058758, 0.47128534118457593, 0.30213165900863986, 0.1976803405705198,
-     1.0368778270532233, 0.28243513081165167],
-    [0.5572250798019833, 0.3753919808058758, 0.4043250555812386, 0.30213165900863986, 3.36709813887708,
-     0.6183781593635554, 3.7503154997848664],
-    [-0.058273120607424365, 0.3753919808058758, 0.47128534118457593, 0.30213165900863986, 0.4995296546949541,
-     0.7578780485934448, 0.6127094516662436],
-    [0.8649741800066871, 0.3753919808058758, 0.4043250555812386, 0.30213165900863986, -1.6888778727071945,
-     0.6183781593635554, -1.7817793745295476],
-    [-0.9815204212215358, -0.6975358677579336, -0.6287764937273944, 0.30213165900863986, -1.3870285585827602,
-     0.6183781593635554, -1.4515050536749556],
-    [-0.3660222208121282, 0.3753919808058758, 0.47128534118457593, 0.30213165900863986, 0.4240673261638455,
-     0.6183781593635554, 0.5301408714525956],
-    [0.24947597959727946, 1.4483198293696853, 1.4278608498036804, 0.30213165900863986, 1.556002254130474,
-     0.6183781593635554, 1.7686695746573151]]}
+from loan_pred.preprocessing.embedding import EmbeddingTransformer
+from loan_pred.preprocessing.get_data import get_train_dg, get_train_loans, get_train_prevloans
+from loan_pred.preprocessing.graph_processing import generate_graphs_iterator, HeteroGraphDataset
+from loan_pred.train.engine import engine_graph
 
 if __name__ == "__main__":
+    # dg data prep
+    scaler_dg = load_pickle(file_path="../../models_storage/scalers/dg_scaler.pk")
+    encoder_dg = load_pickle(file_path="../../models_storage/encoders/dg_multilabel_encoder.pk")
+    train_dg = get_train_dg(
+        path="../../data/preprocessed/train/train_dg.csv",
+        encoder=encoder_dg,
+        scaler=scaler_dg
+    )
 
-    test_ = {}
-    for node in ["node_prevloans", "node_dg"]:
-        node_ids = list(range(len(data[node])))
-        if len(node_ids) > 0:
-            rel = "has" if node == "node_prevloans" else "lives"
-            test_[("node_loans", rel, node)] = (np.array([0] * len(node_ids)), np.array(node_ids))
+    # perf data prep
+    train_perf = get_train_loans(
+        path="../../data/preprocessed/train/train_perf.csv",
+        encoder=load_pickle(file_path="../../models_storage/encoders/loan_target_encoder"),
+        scaler=load_pickle(file_path="../../models_storage/scalers/loan_scaler.pk")
+    )
 
-    graph = dgl.heterograph(test_)
-    graph.nodes["node_loans"].data["feat"] = torch.tensor(data["node_loans"])
-    graph.nodes["node_dg"].data["feat"] = torch.tensor(data["node_dg"])
-    graph.nodes["node_prevloans"].data["feat"] = torch.tensor(data["node_prevloans"])
+    # prev loans data prep
+    train_prevloans = get_train_prevloans(
+        path="../../data/preprocessed/train/train_prevloans.csv",
+        scaler=load_pickle(file_path="../../models_storage/scalers/prevloan_scaler.pk")
+    )
 
-    model = HeteroRGCN(in_size=5, hidden_size=5, out_size=1, etypes=['has', 'lives'])
-    res = model(graph)
-    print(res)
+    # Apply embedding transformation
+    embeddings_weight = load_pickle(file_path="../../models_storage/embeddings/embeddings_weights.pk")
+    embedder = EmbeddingTransformer(embedding_weights=embeddings_weight)
+    train_dg = embedder.transform(train_dg)
+
+    # Split data
+    n = len(train_perf)
+    train_len = int(n * 0.8)
+    test_len = n - train_len
+    population = list(range(n))
+
+    train_mask = random.sample(population, train_len)
+    test_mask = [k for k in population if k not in train_mask]
+
+    train_data = train_perf.loc[train_mask]
+    test_data = train_perf.loc[test_mask]
+
+    # graph iterator
+    train_graph_generator = generate_graphs_iterator(
+        loan=train_data,
+        dg=train_dg,
+        prev_loan=train_prevloans
+    )
+    test_graph_generator = generate_graphs_iterator(
+        loan=test_data,
+        dg=train_dg,
+        prev_loan=train_prevloans
+    )
+
+    # Generate graph dataset
+    train_dataset = HeteroGraphDataset(train_graph_generator)
+    train_dataloader = GraphDataLoader(train_dataset, batch_size=8, shuffle=True)
+
+    test_dataset = HeteroGraphDataset(test_graph_generator)
+    test_dataloader = GraphDataLoader(test_dataset, batch_size=50)
+
+    for batch, label in train_dataloader:
+        try:
+            de = batch
+            label = label
+        except Exception as er:
+            print(er)
+
+    pos_weight = train_data.good_bad_flag.value_counts()[0] / train_data.good_bad_flag.value_counts()[1]
+    criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(pos_weight))
+    criterion.to(config["DEVICE"])
+
+    model = HeteroRGCN(in_size=5, hidden_size=5, out_size=1, etypes=['has', 'lives']).to(config["DEVICE"])
+
+    optimizer = optim.Adam(model.parameters(), config["LR"])
+
+    engine_graph(
+        model=model,
+        criterion=criterion,
+        optimizer=optimizer,
+        trainloader=train_dataloader,
+        testloader=test_dataloader,
+        device=config["DEVICE"],
+        n_epoch=2
+    )
